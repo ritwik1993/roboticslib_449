@@ -1,4 +1,4 @@
-# Library of functions for class MEE449
+# Library of functions for class ME449
 --undergoing revisions! 
 
 This is a public repository. There are 2 ways you can work with this.
