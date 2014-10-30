@@ -1,5 +1,5 @@
 function S=exp2transformation(s,theta)
-%Function to generate a rotation matrix given its exponential coordinates,
+%Function to generate a transformation matrix given its exponential coordinates,
 %   S=exp2transformation(s,theta)
 %   Inputs:   s- (6x1)exponential coordinates 
 %             theta - angle in radians
