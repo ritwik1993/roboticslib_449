@@ -13,3 +13,6 @@ Add the path to the folder into your current working directory
 You can use the "help function_name" command to quickly look at the preferred I/O for the functions.
 
 ##Mathematica
+Don't forget to run the package (button top right) before attempting to use the functions. Instructions on how to import the package automatically upon start-up of a notebook will follow soon and should be widely available online.
+
+You can use function_name::usage to get a description of a function.
