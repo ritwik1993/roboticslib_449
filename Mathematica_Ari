@@ -1,0 +1,313 @@
+BeginPackage["RoboticManipulation`"]
+
+RotationMatrixInverse[A_] := A\[Transpose]
+
+FindSkewSymmetric[
+  q_] := {{0, -q[[3]], q[[2]]}, {q[[3]], 0, -q[[1]]}, {-q[[2]], 
+   q[[1]], 0}}
+(*Given a vector in \[DoubleStruckCapitalR]^3, this gives the \
+skew-symmetric representation.*)
+
+FindVector[A_] := {A[[3]][[2]], A[[1]][[3]], A[[2]][[1]]}
+(*Given a skew-symmetric matrix, this yields the corresponding \
+vector.*)
+
+
+(*In the following functions, we use Module to use variables as \
+local.*)
+
+(*Given exponential coordinates representing a rotation, this yields \
+the rotation matrix*)
+
+RotationMatrixFromExponential[\[Omega]_] := 
+ Module[{SK\[Omega], \[Theta]},
+  \[Theta] = 
+   Sqrt[\[Omega].\[Omega]];(*\[Theta] is the size of \[Omega]*)
+  
+  SK\[Omega] = 
+   If[\[Theta] == 0, SK\[Omega] = Table[0, {3}, {3}], 
+    FindSkewSymmetric[\[Omega]/\[Theta]]](*Returns the skew symmetric \
+matrix of the normalized \[Omega], taking care of the \[Omega]=
+  0 case*);
+  1. IdentityMatrix[3] + 
+   Sin[\[Theta]] SK\[Omega] + (1 - 
+      Cos[\[Theta]]) SK\[Omega].SK\[Omega]](*Formula for the final \
+matrix*)
+
+(*Given a rotation matrix, this retuns the exponential coordinates \
+\[Omega]*)
+MyMatrixLog[R_] := Module[{Sk\[Omega], \[Theta]},
+  If[R == IdentityMatrix[3], \[Theta] = 0,
+   If[Tr[R] == -1, \[Theta] = Pi,
+    \[Theta] = 
+     ArcCos[(Tr[R] - 1)/
+       2]]];(*Nested If sets \[Theta] according to the 3 possible \
+cases*)
+  
+  Sk\[Omega] = 
+   If[\[Theta] == 0, 
+    Table[0, {3}, {3}], (R - 
+       R\[Transpose])/(2 Sin[\[Theta]])];(*Finds [\[Omega]] according \
+to the formula, accounting for the \[Theta]=0 case*)
+  
+  FindVector[Sk\[Omega]] \[Theta]]
+
+(*Takes an angular velocity in {b} and a rotation matrix representing \
+{b} in {a} and returns \[Omega]a in {a}.*)
+
+VelocityFrameTransform[\[Omega]b_, Rab_] := Rab.\[Omega]b
+
+(*Takes a 4x4 transformation matrix T and returns the inverse.*)
+
+TransformationInverse[T_] := Module[{R, v},
+  R = T[[1 ;; 3, 1 ;; 3]]; 
+  v = T[[1 ;; 3, 
+     4]];(*Find R and v by splicing T*)
+  (*This table returns the \
+inverse*)
+  
+  Table[If[i <= 3 && j <= 3, R\[Transpose][[i]][[j]],(*The top-
+    left 3x3 matrix is R\[Transpose]*)
+    
+    If[i <= 3 && j == 4, -(R\[Transpose].v)[[i]],(*Sets the new v*)
+  
+        If[i == 4 && j == 4, 1, 0]]], {i, 4}, {j, 
+    4}]](*Sets the bottom row as {0,0,0,1}*)
+
+
+(*Takes a 1x6 twist V and returns the matrix [V].*)
+
+MatrixFromTwist[V_] := Module[{\[Omega], v, Sk\[Omega]},
+  \[Omega] = V[[1 ;; 3]]; 
+  v = V[[4 ;; 6]];(*Splices V into \[Omega] and v.*)
+  
+  Sk\[Omega] = FindSkewSymmetric[\[Omega]];
+  Table[If[i <= 3 && j <= 3, 
+    Sk\[Omega][[i]][[j]],(*Sets the upper right 3x3 as [\[Omega]]*)
+  
+      If[i <= 3 && j == 4, v[[i]], 0]], {i, 4}, {j, 
+    4}]](*Sets v, and the bottom row to be 0's*)
+
+(*This finds a twist V given the matrix [V].*)
+
+TwistFromMatrix[A_] := Module[{SK\[Omega], v},
+  SK\[Omega] = A[[1 ;; 3, 1 ;; 3]];
+  v = A[[1 ;; 3, 4]];(*Splices [
+  V] accordingly to get v and [\[Omega]]*)
+  
+  Join[FindVector[SK\[Omega]], 
+   v]](*Uses FindVector to get \[Omega] from [\[Omega]]*)
+
+(*This takes exponential coordinates V=S\[Theta] and returns the 4x4 \
+transformation matrix.*)
+
+TransformationMatrixFromExponential[V_] := 
+ Module[{\[Omega]p, vp, \[Omega], \[Theta], Exp\[Omega], SK\[Omega], 
+   newv, v},
+  \[Omega]p = V[[1 ;; 3]]; 
+  vp = V[[4 ;; 
+      6]];(*Splices V into \[Omega]' and v' *)
+  (*This If extracts \
+\[Theta] and finds normalized \[Theta] and v, 
+  taking care of the various 0 cases.*)
+  
+  If[Sqrt[\[Omega]p.\[Omega]p] > 0, \[Theta] = 
+    Sqrt[\[Omega]p.\[Omega]p]; \[Omega] = \[Omega]p/\[Theta]; 
+   v = vp/\[Theta],
+   If[Sqrt[\[Omega]p.\[Omega]p] == 0 && Sqrt[vp.vp] > 0, \[Theta] = 
+     Sqrt[vp.vp]; v = vp/\[Theta]; \[Omega] = \[Omega]p,
+    \[Theta] = 0; \[Omega] = \[Omega]p; v = vp]];
+  SK\[Omega] = FindSkewSymmetric[\[Omega]];
+  Exp\[Omega] = 
+   1. IdentityMatrix[3] + 
+    Sin[\[Theta]] SK\[Omega] + (1 - 
+       Cos[\[Theta]]) SK\[Omega].SK\[Omega];(*Finds \
+\[ExponentialE]^([\[Omega]]\[Theta])*)
+  
+  newv = (IdentityMatrix[
+        3] \[Theta] + (1 - Cos[\[Theta]]) SK\[Omega] + (\[Theta] - 
+         Sin[\[Theta]]) SK\[Omega].SK\[Omega]).v;(*Evaluates the \
+translation 3-vector*)
+  
+  Table[If[i <= 3 && j <= 3, 
+    Exp\[Omega][[i]][[j]],(*This Table gives the final 4x4 matrix, 
+    piecewise.*)
+    
+    If[i <= 3 && j == 4, 1. newv[[i]], 
+     If[i == 4 && j == 4, 1, 0]]], {i, 4}, {j, 4}]]
+
+(*Given a 4x4 matrix T, this finds the corresponding spatial twist.*)
+
+TMatrixLog[T_] := Module[{R, p, \[Theta], Sk\[Omega], v, G},
+  R = T[[1 ;; 3, 1 ;; 3]]; 
+  p = T[[1 ;; 3, 4]];(*Splices T to give R and p.*)
+  
+  G := (IdentityMatrix[3]/\[Theta] - 
+     Sk\[Omega]/
+      2 + (1/\[Theta] - 
+        Cot[\[Theta]/2]/
+         2) Sk\[Omega].Sk\[Omega]);(*G is the factor that multiplies \
+p to give v, as in Eq. 3.116 in the book.*)
+  
+  If[R == IdentityMatrix[3], Sk\[Omega] = Table[0, {3}, {3}]; 
+   If[Sqrt[p.p] > 0, v = p/Sqrt[p.p], v = p]; \[Theta] = 
+    Sqrt[p.p];,(*Sets [\[Omega]],v, 
+   and \[Theta] for the case of no rotation, accounting for the p=
+   0 case too.*)
+   
+   If[Tr[R] == -1, \[Theta] = Pi; 
+    Sk\[Omega] = FindSkewSymmetric[MyMatrixLog[R]]; 
+    v = G.p,(*Sets variables for the \[Theta]=\[Pi] case*)
+    \
+\[Theta] = ArcCos[(Tr[R] - 1)/2];
+    Sk\[Omega] = (R - R\[Transpose])/(2 Sin[\[Theta]]);
+    v = G.p;]];(*Nested If ends with the case of general rotations*)
+ 
+   1. Join[FindVector[Sk\[Omega]], v] \[Theta]]
+
+(*Gives the 6x6 adjoint map of a transformation matrix T.*)
+
+Ad[T_] := Module[{R, p, SKp},
+  R = T[[1 ;; 3, 1 ;; 3]]; 
+  p = T[[1 ;; 3, 4]];(*Splices T to find R and p.*)
+  
+  SKp = FindSkewSymmetric[p];
+  (*Table treates the 4 quadrants individually*)
+  
+  Table[If[i <= 3 && j >= 4, 0,(*Upper right*)
+    
+    If[i >= 4 && j <= 3, (SKp.R)[[i - 3]][[j]],(*Lower left*)
+     
+     If[i <= 3 && j <= 3, R[[i]][[j]],(*Upper left*)
+      
+      R[[i - 3]][[j - 3]]]]], {i, 6}, {j, 6}]](*Lower right*)
+
+(*Takes a twist Vb in {b} and a transformation matrix Tab \
+representing {b} in {a} and returns Va in {a}.*)
+
+BTwisttoA[Vb_, Tab_] := Ad[Tab].Vb
+
+
+(*Takes the home configuration M of the end-effector,a list S of \
+world-fixed screw axes in the space frame corresponding to the joint \
+motions, and a list \[Theta] of joint displacements and calculates \
+the configuration of the end-effector when the robot is at these \
+joint coordinates.*)
+
+EndEffectorConfiginSpaceFrame[M_, S_, \[Theta]_] := Module[{joints, m},
+  joints = 
+   Table[TransformationMatrixFromExponential[
+     S[[i]] \[Theta][[i]]], {i, 
+     Length[S]}];(*Writes a list of \[ExponentialE]^([S]\[Theta])*)
+  
+  m = M;(*Initializes iterator m*)
+  
+  Do[m = joints[[i]].m, {i, Length[S], 1, -1}]; 
+  m](*Evaluates the formula iteratively, starting with i=n and \
+working backwards.*)
+
+
+(*Takes the home configuration M of the end-effector,a list B of \
+end-effector-fixed screw axes in the body frame corresponding to the \
+joint motions, and a list \[Theta] of joint displacements and \
+calculates the configuration of the end-effector when the robot is at \
+these joint coordinates.*)
+
+EndEffectorConfiginBodyFrame[M_, B_, \[Theta]_] := 
+ Module[{joints, m},
+  joints = 
+   Table[TransformationMatrixFromExponential[
+     B[[i]] \[Theta][[i]]], {i, 
+     Length[B]}];(*Writes a list of \[ExponentialE]^([S]\[Theta])*)
+  
+  m = M;
+  Do[m = m.joints[[i]], {i, Length[B]}]; 
+  m](*Evaluates the formula iteratively, this time starting with i=1 \
+and working forwards up to i=n.*)
+
+(*Generates the body and space Jacobian for a manipulator, given a \
+list of screw joint axes V and joint angles \[Theta]*)
+
+SpaceJacobian[S_, \[Theta]_] := Module[{joints, i, I, Jsi, J},
+  (*Writes a list of \[ExponentialE]^([S]\[Theta])*)
+  
+  joints = 
+   Table[TransformationMatrixFromExponential[
+     S[[j]] \[Theta][[j]]], {j, Length[S]}];
+  J = {};
+  
+  (*For the ith joint, 
+  this loop multiplies the correct matrix exponentials \
+\[ExponentialE]^([S1]\[Theta]1)...\[ExponentialE]^([S(i-1)]\[Theta](i-\
+1)), takes the Adjoint of that product and multiplies that by Si, 
+  and adds that final product as an row in the transposed space \
+Jacobian*)
+  For[i = 1, i <= Length[S], i++,
+   I = IdentityMatrix[4];
+   Do[I = I.joints[[j]], {j, i - 1}];
+   Jsi = Ad[I].S[[i]];
+   AppendTo[J, Jsi]
+   ];
+  (*Transposes to return the Jacobian.*)
+  J\[Transpose]]
+
+BodyJacobian[B_, \[Theta]_] := Module[{joints, i, I, Jsi, J},
+  (*Writes a list of \[ExponentialE]^([S]\[Theta])*)
+  
+  joints = Table[
+    TransformationMatrixFromExponential[-B[[j]] \[Theta][[j]]], {j, 
+     Length[B]}];
+  J = {};
+  
+  (*For the ith joint, 
+  this loop multiplies the correct matrix exponentials \
+\[ExponentialE]^(-[Sn]\[Theta]n)...\[ExponentialE]^(-[S(i+1)]\[Theta](\
+i+1)), takes the Adjoint of that product and multiplies that by Si, 
+  and adds that final product as an row in the transposed body \
+Jacobian*)
+  For[i = 1, i <= Length[B], i++,
+   I = IdentityMatrix[4];
+   Do[I = joints[[j]].I, {j, i + 1, Length[B]}];
+   Jsi = Ad[I].B[[i]];
+   AppendTo[J, Jsi]
+   ];
+  (*Transposes to return the Jacobian.*)
+  J\[Transpose]]
+
+(*Given a set of screw axes in the body frame, a home configuration \
+M, a goal configuration Tgoal, and an initial guess \[Theta]init, \
+returns the angles \[Theta] such that T(\[Theta])=Tgoal.*)
+
+InverseKinematics[Tgoal_, \[Theta]init_, B_, M_] := 
+ Module[{i, \[Epsilon], \[Theta]guess, X, \[CapitalDelta]\[Theta], S, 
+   Jbody},
+  \[Epsilon] = 0.01;
+  \[Theta]guess = \[Theta]init;
+  Jbody := 
+   BodyJacobian[B, \[Theta]guess];(*Initializes the body jacobian, 
+  evaluated delayed to update when our guess updates.*)
+  i = 1;
+  
+  X := EndEffectorConfiginBodyFrame[M, 
+    B, \[Theta]guess];(*Defines the end-effector's configuration, 
+  and initializes it with the initial guess of \[Theta]. 
+  X is evaluated delayed, calculated anew each time we call it.*)
+  
+  Print[X // MatrixForm];
+  While[Norm[
+     TMatrixLog[
+      TransformationInverse[X]. 
+       Tgoal]] > \[Epsilon],(*Compares the distance between X and the \
+goal*)
+   S = TMatrixLog[TransformationInverse[X].Tgoal];(*Finds S=
+   log[X^-1T(\[Theta])]*)
+   
+   \[CapitalDelta]\[Theta] = PseudoInverse[Jbody].S;
+   \[Theta]guess = \[Theta]guess + \[CapitalDelta]\[Theta];
+   Print["joint angle guess =", \[Theta]guess];
+   Print["End effector position =" , X // MatrixForm];
+   i++; If[i > 10, Abort[]];(*Prevents crashes*)
+   ]]
+
+
+EndPackage[]
