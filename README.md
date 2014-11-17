@@ -16,3 +16,22 @@ You can use the "help function_name" command to quickly look at the preferred I/
 Don't forget to run the package (button top right) before attempting to use the functions. Instructions on how to import the package automatically upon start-up of a notebook will follow soon and should be widely available online.
 
 You can use function_name::usage to get a description of a function.
+
+###me449_robotics_library_2014_10_30.wl
+
+Bugs:
+
+* Incorrect equation in ExpToTrans when calculating v
+* Some variables are forgotten as global variables
+
+###me449_robotics_library_2014_11_17.wl
+
+Updates:
+
+* Fixed function ExpToTrans, which takes the matrix logarithm of a homogeneous transformation
+* All variables kept local inside modules
+* Added elaborately commented functions from problemset 3
+
+Bugs:
+
+(Currently no known bugs. Problemset 4 works fine. Please report any bugs that you find.)
