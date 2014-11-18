@@ -15,6 +15,14 @@ You can use the "help function_name" command to quickly look at the preferred I/
 ##Mathematica
 Don't forget to run the package (button top right) before attempting to use the functions. Instructions on how to import the package automatically upon start-up of a notebook will follow soon and should be widely available online.
 
+There are now two versions of the code, Ari's and Sherif's. It might be helpful to resolve issues by comparing the two.
+
+Ari's:
+Updates: Just fixed an issue that arose when working symbolically within the scope of PS 4. You may now work symbolically on this set.
+
+
+Sherif's:
+
 You can use function_name::usage to get a description of a function.
 
 ###me449_robotics_library_2014_10_30.wl
