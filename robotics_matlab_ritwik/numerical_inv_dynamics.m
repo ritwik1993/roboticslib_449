@@ -1,5 +1,5 @@
 % Code to calculate the numerical inverse dynamics
-
+%Please modify line 68 to specify the configuration of end-effector in the last frame
 %--------------------------------------------------------------------------------------------------
 %Preliminaries
 n=input('Please enter number of links in the robot: ');
